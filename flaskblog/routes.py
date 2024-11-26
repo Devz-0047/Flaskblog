@@ -1,7 +1,9 @@
 from flask import Blueprint, render_template, url_for, flash, redirect
 from flaskblog.forms import RegistrationForm, LoginForm
-
+from flaskblog.models import User
+from flaskblog import bcrypt, db
 main = Blueprint('main', __name__)
+from flask_login from login_user
 
 posts = [
     {
@@ -31,17 +33,22 @@ def about():
 def register():
     form = RegistrationForm()
     if form.validate_on_submit():
+        hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+        user = User(username=form.username.data,email=form.email.data, password=hashed_password)
+        db.session.add(user)
+        db.session.commit()
         flash(f'Account created for {form.username.data}!', 'success')
-        return redirect(url_for('main.home'))
+        return redirect(url_for('login'))
     return render_template('register.html', title='Register', form=form)
 
 @main.route("/login", methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        if form.email.data == 'admin@blog.com':
-            flash('You have been logged in!', 'success')
-            return redirect(url_for('main.home'))
+        user = User.query.filter_by(email=form.email.data).first()
+        if user and bcrypt.check_password_hash(user.password,form.password.data):
+            login_user(user,form.remember.data)
+            return redirect(url_for('home'))
         else:
-            flash('Login Unsuccessful. Please check your email and password.', 'danger')
+            flash('Login unsuccessful, please check email and password')
     return render_template('login.html', title='Login', form=form)
